@@ -299,12 +299,12 @@ Vue.mixin({
 
           //slap some retcons in there as well cause it's not like this function was long enough already
           if (resultCurrent) {
-            this.$localData.settings.retcon1 = resultCurrent >= '007999'
-            this.$localData.settings.retcon2 = resultCurrent >= '008053'
-            this.$localData.settings.retcon3 = resultCurrent >= '008317'
-            this.$localData.settings.retcon4 = resultCurrent >= '008991'
-            this.$localData.settings.retcon5 = resultCurrent >= '009026'
-            this.$localData.settings.retcon6 = resultCurrent >= '009057'
+            this.$localData.settings.retcon1 = resultCurrent >= '000001'
+            this.$localData.settings.retcon2 = resultCurrent >= '000001'
+            this.$localData.settings.retcon3 = resultCurrent >= '000001'
+            this.$localData.settings.retcon4 = resultCurrent >= '000001'
+            this.$localData.settings.retcon5 = resultCurrent >= '000001'
+            this.$localData.settings.retcon6 = resultCurrent >= '000001'
           }
           
           if (resultCurrent || resultLimit) {
