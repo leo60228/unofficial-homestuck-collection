@@ -207,11 +207,18 @@ try {
       ]
     }
   ]
-  
+
   //Spin up a static file server to grab assets from. Mounts on a dynamically assigned port, which is returned here as a callback.
   const server = http.createServer((request, response) => {
     return handler(request, response, {
-        public: assetDir
+      public: assetDir,
+      headers: [{
+        source: '**/*',
+        headers: [{
+          key: 'Access-Control-Allow-Origin',
+          value: '*'
+        }]
+      }]
     })
   })
 

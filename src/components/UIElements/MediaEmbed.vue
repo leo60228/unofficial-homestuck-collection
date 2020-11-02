@@ -1,7 +1,7 @@
 <template>
 	<img    v-if="getExt(url) === 'img'" :src='$mspaURL(url)' @dragstart="drag($event)" alt />
 	<video  v-else-if="getExt(url) ==='vid'" :src='$mspaURL(url)' :width="videoWidth" controls controlsList="nodownload" disablePictureInPicture alt />
-	<iframe v-else-if="getExt(url) === 'swf'" :key="url" :srcdoc='flashSrc' :width='flashProps.width' :height='($localData.settings.jsFlashes && flashProps.id in cropHeight) ? cropHeight[flashProps.id] : flashProps.height' @load="initIframe()" seamless/>
+	<iframe v-else-if="getExt(url) === 'swf'" :key="url" :width='flashProps.width' :height='($localData.settings.jsFlashes && flashProps.id in cropHeight) ? cropHeight[flashProps.id] : flashProps.height' @load.once="initIframe(url)" seamless/>
 	<iframe v-else-if="getExt(url) === 'html'" :src='$mspaURL(url)' width="650px" height="450px" class="sburb" seamless />
 	<div v-else-if="getExt(url) === 'txt'" v-html="getFile(url)"  class="textEmbed" />
 	<audio v-else-if="getExt(url) === 'audio'" class="audioEmbed" controls controlsList="nodownload" :src="this.$mspaURL(url)" type="audio/mpeg" />
@@ -10,6 +10,12 @@
 <script>
 import fs from 'fs'
 import path from 'path'
+import zlib from 'zlib'
+import { promisify } from 'util'
+
+const inflate = promisify(zlib.inflate)
+const readFile = promisify(fs.readFile)
+const writeFile = promisify(fs.writeFile)
 
 export default {
 	props: ['url'],
@@ -229,9 +235,44 @@ export default {
 				}
 
 				return {id: filename, width: size.x + "px", height: size.y + "px", bgcolor: bgcolor}
-		},
-		flashSrc() {
-			return `
+		}
+	},
+	methods: {
+		async initIframe(rawUrl) {
+			this.$el.contentWindow.vm = this
+			const url = this.$mspaURL(rawUrl)
+			const resp = await fetch(url)
+			const data = Buffer.from(await resp.arrayBuffer())
+			const header = data.slice(0, 8)
+			const fChar = 'F'.charCodeAt(0)
+			const cChar = 'C'.charCodeAt(0)
+			let body
+			let newHeader
+			if (header[0] == fChar) {
+					body = data.slice(8)
+					newHeader = header
+			} else if (header[0] == cChar) {
+					body = await inflate(data.slice(8))
+					newHeader = Buffer.from(header)
+					newHeader[0] = fChar
+			} else {
+					console.warn(`unknown SWF type ${header[0]}`)
+					this.$el.srcdoc = url
+					return
+			}
+			const stringBody = body.toString('latin1')
+			const newStringBody = stringBody.replace(/Gankro/ig, x => {
+					x = x.replace('o', 'a')
+					x = x.replace('O', 'A')
+					return x
+			})
+			const newBody = Buffer.from(newStringBody, 'latin1')
+			const newData = Buffer.concat([newHeader, newBody])
+			const newBlob = new Blob([newData], {
+				type: 'application/x-shockwave-flash'
+			})
+			const newUrl = URL.createObjectURL(newBlob)
+			this.$el.srcdoc = `
 				<html>
 				<head>
 				<style>
@@ -256,8 +297,8 @@ export default {
 				<\/script>
 				</head>
 				<body>
-				<object type="application/x-shockwave-flash" width="${this.flashProps.width}" height="${this.flashProps.height}" data="${this.$mspaURL(this.url)}">
-						<param name='movie' value="${this.$mspaURL(this.url)}"/>
+				<object type="application/x-shockwave-flash" width="${this.flashProps.width}" height="${this.flashProps.height}" data="${newUrl}">
+						<param name='movie' value="${newUrl}"/>
 						<param name='play' value="true"/>
 						<param name='loop' value="true"/>
 						<param name="quality" value="high" />
@@ -268,11 +309,6 @@ export default {
 				</body>
 				</html>
 			`
-		}
-	},
-	methods: {
-		initIframe() {
-			this.$el.contentWindow.vm = this
 		},
 		invokeFromFlash(func) {
 			// getURL "about:srcdoc#link?url" ""
